@@ -6,10 +6,7 @@ import App from './App';
 
 ReactDOM.render(
   <React.StrictMode>
-    <App />
-      <Button variant="contained" color="primary">
-          Hello World
-      </Button>
+    <App/>
   </React.StrictMode>,
   document.getElementById('root')
 );
