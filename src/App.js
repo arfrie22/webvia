@@ -1,10 +1,7 @@
-import logo from './logo.svg';
 import './App.css';
 import Button from "@material-ui/core/Button";
-import { SliderPicker } from "react-color";
 import React from "react";
-import {Grid, Slider} from "@material-ui/core";
-import MaterialColorPicker from "./via.js/MaterialColorPicker";
+import {Slider} from "@material-ui/core";
 import InputLabel from "@material-ui/core/InputLabel";
 import Select from "@material-ui/core/Select";
 import MenuItem from "@material-ui/core/MenuItem";
