@@ -1,7 +1,7 @@
-import { waitUntil } from '../../node_modules/async-wait-until/dist/index.esm.js';
+import { waitUntil } from 'async-wait-until/dist/index.esm.js';
 export { viaCommandId, viaLightingValue, viaKeyboardValueId, Keyboard };
 
-const TIMEOUT = 10000
+const TIMEOUT = 10000;
 
 const viaCommandId = {
     getProtocolVersion                : 0x01,  // always 0x01
@@ -101,6 +101,8 @@ const viaLightingValue = {
 class Keyboard {
     via = null;
     opened = false;
+    macroBuffer = null;
+    valid = false;
 
     values = {
         protocolVersion: {
@@ -172,7 +174,7 @@ class Keyboard {
         buffer: {
             offset: 0,
             size: 0,
-            buffer: [],
+            buffer: null,
             timestamp: 0
         },
     }
@@ -263,7 +265,7 @@ class Keyboard {
                 this.values.macroBuffer.size = data.getUint8(3);
                 this.values.macroBuffer.buffer = [];
                 for (let i = 0; i < this.values.macroBuffer.size; i++) {
-                    this.values.macroBuffer.buffer.append(dataUint8(4 + i));
+                    this.values.macroBuffer.buffer[i] = data.getUint8(4 + i);
                 }
                 this.values.macroBuffer.timestamp = Date.now();
                 return;
@@ -280,7 +282,7 @@ class Keyboard {
                 this.values.buffer.size = data.getUint8(3);
                 this.values.buffer.buffer = [];
                 for (let i = 0; i < this.values.macroBuffer.size; i++) {
-                    this.values.buffer.buffer.append(dataUint8(4 + i));
+                    this.values.macrobuffer[i] = data.getUint8(4 + i);
                 }
                 this.values.buffer.timestamp = Date.now();
                 return;
@@ -297,13 +299,27 @@ class Keyboard {
             for (let collection of device.collections) {
                 if (collection.usage === 97) {
                     this.via = device;
+                    this.valid = true;
                 }
             }
         }
-        this.via.addEventListener("inputreport", event => {this.viaReport(event);});
-        this.open();
+
+        if (this.valid) {
+            this.via.addEventListener("inputreport", event => {this.viaReport(event);});
+        }
     }
 
+    async isValid() {
+        if (this.valid) {
+            return (await this.getProtocolVersion() > 0);
+        }
+
+        return false;
+    }
+
+    async init() {
+        await this.open();
+    }
 
     async open() {
         await this.via.open();
@@ -581,7 +597,7 @@ class Keyboard {
                 offset1,
                 offset2,
                 Math.min(Math.max(size, 0), 28),
-                ].concat(buffer)));
+                ].concat(Array.from(buffer))));
         }
     }
 
@@ -626,7 +642,32 @@ class Keyboard {
                 offset1,
                 offset2,
                 Math.min(Math.max(size, 0), 28),
-            ].concat(buffer)));
+            ].concat(Array.from(buffer))));
+        }
+    }
+
+    async readMacroBuffer() {
+        let size = await this.getMacroBufferSize();
+        this.macroBuffer = new ArrayBuffer(size);
+        let macroBufferArray = new Uint8Array(this.macroBuffer);
+        for (let i = 0; i < size; i += 28) {
+            macroBufferArray.set(await this.getMacroBuffer(i, Math.min(28, size - i)), i);
+        }
+
+        return macroBufferArray;
+    }
+
+    async updateMacroBuffer() {
+        let maxSize = this.getMacroBufferSize();
+        let bufferSize = this.macroBuffer.byteLength;
+        let macroBufferArray = new Uint8Array(this.macroBuffer);
+
+        if (bufferSize > maxSize) {
+            throw Error("Buffer size larger than allocated for EEPROM");
+        }
+
+        for (let i = 0; i < bufferSize; i += 28) {
+            await this.setMacroBuffer(i, Math.min(28, bufferSize - i), macroBufferArray.subarray(i, i + Math.min(28, bufferSize - i)));
         }
     }
 }
